@@ -2,8 +2,6 @@
 
 ## 2017-09-01 to 2021-01-01
 
-![Plot](plot.png)
-
 Statistic|Total|Technical|Non-technical|Employed|Ex-employee
 -|-|-|-|-|-
 5 Stars|12%|11%|14%|12%|13%
@@ -15,3 +13,8 @@ Approve CEO 2|18%|15%|20%|21%|11%
 Disapprove CEO 2|14%|13%|14%|11%|20%
 Approve CEO 3|4%|5%|4%|4%|5%
 Disapprove CEO 3|22%|27%|16%|27%|10%
+
+![Timeline](plot_timeline.png)
+
+![Review frequency](plot_review_freq.png)
+

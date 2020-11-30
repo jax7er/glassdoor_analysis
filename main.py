@@ -59,6 +59,9 @@ FILT_ORDER = 2
 
 Y_SCALE = 0.8
 
+PLOT_TIMELINE_NAME = "plot_timeline.png"
+PLOT_REVIEW_FREQ_NAME = "plot_review_freq.png"
+
 # %% get raw data from csv file
 df = pd.read_excel("data.xlsx").iloc[::-1]  # reverse to be ascending
 
@@ -147,8 +150,9 @@ def make_table() -> str:
 with open("README.md", "w") as readme_f:
     readme_f.write(f"# {README_TITLE}\n\n")
     readme_f.write(f"## {START_DATE:%Y-%m-%d} to {END_DATE:%Y-%m-%d}\n\n")
-    readme_f.write("![Plot](plot.png)\n\n")
-    readme_f.write(make_table())
+    readme_f.write(make_table() + "\n\n")
+    readme_f.write(f"![Timeline]({PLOT_TIMELINE_NAME})\n\n")
+    readme_f.write(f"![Review frequency]({PLOT_REVIEW_FREQ_NAME})\n\n")
 
 # %% interpolate to regular timebase of 1 day
 interp = {"date": [clean["date"][0]]}
@@ -262,7 +266,7 @@ else:
     axes[0].legend(loc=(0, 1.05))
 
     # save the figure
-    fig.savefig("plot.png")
+    fig.savefig(PLOT_TIMELINE_NAME)
 
     plt.show()
 
@@ -276,13 +280,14 @@ count = Counter(raw["date"])
 fig, ax = plt.subplots()
 fig.set_size_inches(20, 5)
 fig.set_facecolor("white")
+fig.suptitle("Review frequency")
+fig.subplots_adjust(left=0.02, bottom=0.11, right=0.98, top=0.9)
 
 days = (END_DATE - START_DATE).days
 ax.hist(count, bins=int(days * 12 / 365), label="Per month")
 ax.hist(count, bins=int(days * 52 / 365), label="Per week")
 ax.hist(count, bins=int(days), label="Per day")
 
-ax.set_title("Review frequency")
 ax.set_xticks(xticks)
 ax.set_xticklabels(xticklabels, rotation=90)
 ax.set_xlim(
@@ -294,5 +299,7 @@ tick_step = 2
 ax.set_yticks(range(0, ymax + tick_step, tick_step))
 ax.grid()
 ax.legend()
+
+fig.savefig(PLOT_REVIEW_FREQ_NAME)
 
 plt.show()
