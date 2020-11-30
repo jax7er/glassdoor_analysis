@@ -283,10 +283,9 @@ fig.set_facecolor("white")
 fig.suptitle("Review frequency")
 fig.subplots_adjust(left=0.02, bottom=0.11, right=0.98, top=0.9)
 
-days = (END_DATE - START_DATE).days
-ax.hist(count, bins=int(days * 12 / 365), label="Per month")
-ax.hist(count, bins=int(days * 52 / 365), label="Per week")
-ax.hist(count, bins=int(days), label="Per day")
+n_unique_days = len(count)
+ax.hist(count, bins=n_unique_days // 4, label=f"{n_unique_days // 4} bins")
+ax.hist(count, bins=n_unique_days, label=f"{n_unique_days} bins")
 
 ax.set_xticks(xticks)
 ax.set_xticklabels(xticklabels, rotation=90)
