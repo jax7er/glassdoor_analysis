@@ -39,8 +39,14 @@ DOI_LABELS, DOI_DATES, DOI_COLOURS = zip(
     ("2021", date(2021, 1, 1), "black")
 )
 
-START_DATE = DOI_DATES[DOI_LABELS.index("CEO 2")]
-END_DATE = DOI_DATES[DOI_LABELS.index("2021")]
+def doi_date(label: str) -> date:
+    return DOI_DATES[DOI_LABELS.index(label)]
+
+def doi_label(date_: date) -> str:
+    return DOI_LABELS[DOI_DATES.index(date_)]
+
+START_DATE = doi_date("CEO 2")
+END_DATE = doi_date("2021")
 
 README_TITLE = "Glassdoor Data (UK, Full Time)"
 
@@ -58,7 +64,7 @@ df = pd.read_excel("data.xlsx").iloc[::-1]  # reverse to be ascending
 
 # %% ensure ordered
 iso = df["date"].apply(date.fromisoformat)
-assert all(x[0] <= x[1] for x in zip(iso[:-1], iso[1:]))
+assert all(prev <= curr for prev, curr in zip(iso[:-1], iso[1:]))
 
 # %% remove out of bounds rows
 df = df[(START_DATE <= iso) & (iso <= END_DATE)]
@@ -98,8 +104,8 @@ clean["ceo_opinion"] = clean["ceo_opinion"].fillna(value=0)
 clean["years"] = clean["years"].fillna(value=0)
 
 # %% create markdown report
-ceo_2_start = DOI_DATES[DOI_LABELS.index("CEO 2")]
-ceo_2_end = DOI_DATES[DOI_LABELS.index("CEO 3")]
+ceo_2_start = doi_date("CEO 2")
+ceo_2_end = doi_date("CEO 3")
 ceo_2_opinion = clean["ceo_opinion"].where(
     (ceo_2_start < clean["date"]) & (clean["date"] <= ceo_2_end)
 )
@@ -110,39 +116,39 @@ ceo_3_opinion = clean["ceo_opinion"].where(
     (ceo_3_start < clean["date"]) & (clean["date"] <= ceo_3_end)
 )
 
-def make_perc(stats: np.ndarray, label: str):
-    def perc(i = None):
-        return int(round(100 * (stats if i is None else stats[i]).mean()))
-    
-    return (
-        f"### {label}\n"
-        f"{perc()}% total\n"
-        f"- {perc(clean['technical'])}% technical\n"
-        f"- {perc(~clean['technical'])}% non-technical\n"
-        f"- {perc(clean['employed'])}% employed\n"
-        f"- {perc(~clean['employed'])}% ex-employee\n"
-        "\n"
-    )
+def make_table() -> str:
+    def make_row(bools: np.ndarray, label: str) -> str:
+        def perc(data: np.ndarray) -> str:
+            return f"{100 * data.mean():.0f}%"
+
+        return "|".join([
+            label,
+            perc(bools), 
+            perc(bools[clean['technical']]), 
+            perc(bools[~clean['technical']]), 
+            perc(bools[clean['employed']]), 
+            perc(bools[~clean['employed']]),
+        ])
+
+    return "\n".join([
+        "Statistic|Total|Technical|Non-technical|Employed|Ex-employee",
+        "-|-|-|-|-|-",
+        make_row(clean["stars"] == 5, "5 Stars"),
+        make_row(clean["stars"] == 1, "1 Star"),
+        make_row(clean["recommends"], "Recommend"),
+        make_row(clean["outlook"] == 1, "Positive Outlook"),
+        make_row(clean["outlook"] == -1, "Negative Outlook"),
+        make_row(ceo_2_opinion == 1, "Approve CEO 2"),
+        make_row(ceo_2_opinion == -1, "Disapprove CEO 2"),
+        make_row(ceo_3_opinion == 1, "Approve CEO 3"),
+        make_row(ceo_3_opinion == -1, "Disapprove CEO 3"),
+    ])
 
 with open("README.md", "w") as readme_f:
-    def write_perc(stats: np.ndarray, label: str):
-        readme_f.write(make_perc(stats, label))
-
-    readme_f.write(
-        f"# {README_TITLE}\n\n"
-        "![Plot](plot.png)\n\n"
-        f"## {START_DATE:%Y-%m-%d} to {END_DATE:%Y-%m-%d}\n\n"
-    )
-
-    write_perc(clean["stars"] == 5, "5 Stars")
-    write_perc(clean["stars"] == 1, "1 Star")
-    write_perc(clean["recommends"], "Recommend")
-    write_perc(clean["outlook"] == 1, "Positive Outlook")
-    write_perc(clean["outlook"] == -1, "Negative Outlook")
-    write_perc(ceo_2_opinion == 1, "Approve CEO 2")
-    write_perc(ceo_2_opinion == -1, "Disapprove CEO 2")
-    write_perc(ceo_3_opinion == 1, "Approve CEO 3")
-    write_perc(ceo_3_opinion == -1, "Disapprove CEO 3")
+    readme_f.write(f"# {README_TITLE}\n\n")
+    readme_f.write(f"## {START_DATE:%Y-%m-%d} to {END_DATE:%Y-%m-%d}\n\n")
+    readme_f.write("![Plot](plot.png)\n\n")
+    readme_f.write(make_table())
 
 # %% interpolate to regular timebase of 1 day
 interp = {"date": [clean["date"][0]]}
@@ -169,15 +175,16 @@ for key in TIMELINE_KEYS:
 # %% set up figure and plot data
 fig, axes = plt.subplots(4, 1, sharex=True)
 stars_ax, recommends_ax, outlook_ax, ceo_opinion_ax = axes
-fig.subplots_adjust(left=0.08, bottom=0.11, right=0.98, top=0.9, hspace=0)
+fig.subplots_adjust(left=0.08, bottom=0.11, right=0.92, top=0.9, hspace=0)
 fig.suptitle(
     f"{README_TITLE} Timeline\n"
-    f"total reviews: {len(clean['date'])}, "
+    f"total reviews: {len(raw['date'])}, "
     f"date range [days]: {(END_DATE - START_DATE).days}, "
     f"short filter [weeks]: {FILT_SHORT_DAYS / 7:.1f}, "
     f"long filter [months]: {FILT_LONG_DAYS * 12 / 365:.1f}"
 )
 fig.set_size_inches(20, 10)
+fig.set_facecolor("white")
 
 filt_dates = (
     d for d in DOI_DATES
@@ -186,7 +193,7 @@ filt_dates = (
 xticks = (START_DATE, *filt_dates, END_DATE)
 # use date of interest label if exists else use ISO date by default
 xticklabels = tuple(
-    DOI_LABELS[DOI_DATES.index(d)] if d in DOI_DATES else d.isoformat()
+    doi_label(d) if d in DOI_DATES else d.isoformat()
     for d in xticks
 )
 
@@ -225,14 +232,6 @@ for ax, raw_, clean_, lp_short, lp_long, title, ylim, ylabels in plot_data:
         raw["date"], raw_.where(~clean["employed"]), 
         marker="x", linewidth=0.5, label="Ex-employee (raw)"
     )
-    ax.scatter(  # clean employed
-        clean["date"], clean_.where(raw_.isna() & clean["employed"]), 
-        marker="x", linewidth=0.5, label="Employed (clean)"
-    )
-    ax.scatter(  # clean ex-employee
-        clean["date"], clean_.where(raw_.isna() & ~clean["employed"]), 
-        marker="x", linewidth=0.5, label="Ex-employee (clean)"
-    )
     ax.plot(  # filtered data
         interp["date"], lp_long, "grey",
         interp["date"], lp_short, "red",
@@ -254,9 +253,46 @@ for ax, raw_, clean_, lp_short, lp_long, title, ylim, ylabels in plot_data:
         a.set_ylim(ylim)
     ax.set_xticks(xticks)
     ax.set_xticklabels(xticklabels, rotation=90)
-    ax.set_xlim([min(xticks), max(xticks)])
+    ax.set_xlim(
+        [min(xticks) - timedelta(days=1), max(xticks) + timedelta(days=1)]
+    )
     ax.grid()
 else:
-    # add legend to first plot and show
+    # add legend to first plot
     axes[0].legend(loc=(0, 1.05))
+
+    # save the figure
+    fig.savefig("plot.png")
+
     plt.show()
+
+# %% plot review frequency
+
+from collections import Counter
+from math import ceil
+
+count = Counter(raw["date"])
+
+fig, ax = plt.subplots()
+fig.set_size_inches(20, 5)
+fig.set_facecolor("white")
+
+days = (END_DATE - START_DATE).days
+ax.hist(count, bins=int(days * 12 / 365), label="Per month")
+ax.hist(count, bins=int(days * 52 / 365), label="Per week")
+ax.hist(count, bins=int(days), label="Per day")
+
+ax.set_title("Review frequency")
+ax.set_xticks(xticks)
+ax.set_xticklabels(xticklabels, rotation=90)
+ax.set_xlim(
+    [min(xticks) - timedelta(days=1), max(xticks) + timedelta(days=1)]
+)
+ymax = ceil(ax.get_ylim()[1])
+ax.set_ylim([0, ymax])
+tick_step = 2
+ax.set_yticks(range(0, ymax + tick_step, tick_step))
+ax.grid()
+ax.legend()
+
+plt.show()
