@@ -1,20 +1,18 @@
 # Glassdoor Data (UK, Full Time)
 
-## 2017-09-01 to 2021-01-01
+## 2016-06-23 to 2021-01-01
 
 Statistic|Total|Technical|Non-technical|Employed|Ex-employee
 -|-|-|-|-|-
-5 Stars|12%|11%|14%|12%|13%
-1 Star|35%|33%|38%|33%|39%
-Recommend|42%|45%|38%|43%|39%
-Positive Outlook|36%|39%|31%|36%|36%
-Negative Outlook|36%|38%|35%|37%|35%
-Approve CEO 2|18%|15%|20%|21%|11%
-Disapprove CEO 2|14%|13%|14%|11%|20%
-Approve CEO 3|4%|5%|4%|4%|5%
-Disapprove CEO 3|22%|27%|16%|27%|10%
+5 Stars|13%|11%|16%|14%|12%
+1 Star|30%|29%|30%|27%|36%
+Recommend|44%|46%|46%|49%|32%
+Positive Outlook|35%|37%|34%|39%|27%
+Negative Outlook|31%|33%|30%|31%|32%
+Approve CEO 2|13%|11%|13%|15%|8%
+Disapprove CEO 2|10%|10%|9%|8%|14%
+Approve CEO 3|3%|3%|5%|3%|4%
+Disapprove CEO 3|16%|20%|15%|20%|7%
 
 ![Timeline](plot_timeline.png)
-
-![Review frequency](plot_review_freq.png)
 
