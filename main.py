@@ -100,8 +100,8 @@ clean_cols = ["date", *TIMELINE_KEYS]
 clean = raw[in_date_range][clean_cols]
 
 # separate duplicate dates by an hour (max 24 reviews per day)
-for d, group in clean[clean["date"].duplicated(keep=False)].groupby("date"):
-    clean["date"].loc[group.index] = pd.date_range(d, periods=len(g), freq="H")
+for d, g in clean[clean["date"].duplicated(keep=False)].groupby("date"):
+    clean["date"].loc[g.index] = pd.date_range(d, periods=len(g), freq="H")
 
 assert not any(clean["date"].duplicated())
 
