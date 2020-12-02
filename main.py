@@ -44,27 +44,29 @@ def doi_date(label: str) -> datetime:
     except IndexError:
         return None
 
-def doi_label(date_: datetime) -> str:
+def doi_label(date: datetime) -> str:
     try:
-        return DOI_LABELS[DOI_DATES.index(date_)]
+        return DOI_LABELS[DOI_DATES.index(date)]
     except IndexError:
         return None
 
 START_DATE = doi_date("Brexit vote")
 END_DATE = doi_date("2021")
 
+N_DAYS = (END_DATE - START_DATE).days + 1
+
 README_TITLE = "Glassdoor Data (UK, Full Time)"
+
+PLOT_TIMELINE_NAME = "plot_timeline.png"
 
 # variables and order to plot in the timeline
 TIMELINE_KEYS = "stars recommends outlook ceo_opinion".split()
 
-FILT_SHORT_DAYS = 14  # 2 weeks
-FILT_LONG_DAYS = 365 / 4  # 3 months
+FILT_SHORT_HOURS = 24 * 7 * 2  # 2 weeks
+FILT_LONG_HOURS = 24 * 365 / 4  # 3 months
 FILT_ORDER = 2
 
 Y_SCALE = 0.8
-
-PLOT_TIMELINE_NAME = "plot_timeline.png"
 
 # %% get raw data from csv file
 raw = pd.read_excel(
@@ -94,7 +96,14 @@ raw.sort_values("date", inplace=True)
 
 # %% remove out of range and nan data
 in_date_range = (START_DATE <= raw["date"]) & (raw["date"] <= END_DATE)
-clean = raw[in_date_range][["date", *TIMELINE_KEYS]]
+clean_cols = ["date", *TIMELINE_KEYS]
+clean = raw[in_date_range][clean_cols]
+
+# separate duplicate dates by an hour (max 24 reviews per day)
+for d, group in clean[clean["date"].duplicated(keep=False)].groupby("date"):
+    clean["date"].loc[group.index] = pd.date_range(d, periods=len(g), freq="H")
+
+assert not any(clean["date"].duplicated())
 
 # infer some nan values from the stars column
 missing = clean["recommends"].isna()
@@ -115,7 +124,7 @@ clean["ceo_opinion"].fillna(value=0, inplace=True)
 start = clean["date"].min()
 end = clean["date"].max()
 clean_date = pd.DatetimeIndex(clean["date"])
-interp_date = pd.date_range(start=start, end=end, freq="D")
+interp_date = pd.date_range(start=start, end=end, freq="H")
 
 # calculate numerical index to interpolate on
 clean_delta_days = (clean_date - start).days
@@ -131,8 +140,8 @@ interp = clean.drop(columns="date").apply(do_interp).set_index(interp_date)
 # %% low pass filter
 
 # filter coefficients
-b_short, a_short = butter(FILT_ORDER, 1 / FILT_SHORT_DAYS)
-b_long, a_long = butter(FILT_ORDER, 1 / FILT_LONG_DAYS)
+b_short, a_short = butter(FILT_ORDER, 1 / FILT_SHORT_HOURS)
+b_long, a_long = butter(FILT_ORDER, 1 / FILT_LONG_HOURS)
 
 # functions for performing filtering
 def filt_short(col: pd.Series) -> pd.Series:
@@ -147,7 +156,7 @@ lp_long = interp.apply(filt_long).set_index(interp.index)
 
 # %% create markdown report
 
-# calculate some statistics
+# calculate some statistics on raw data
 ceo_2_start = doi_date("CEO 2")
 ceo_2_end = doi_date("CEO 3")
 ceo_2_opinion = raw["ceo_opinion"].where(
@@ -205,9 +214,9 @@ fig.subplots_adjust(left=0.08, bottom=0.11, right=0.92, top=0.9, hspace=0)
 fig.suptitle(
     f"{README_TITLE} Timeline\n"
     f"total reviews: {len(clean['date'])}, "
-    f"date range [weeks]: {(END_DATE - START_DATE).days / 7:.1f}, "
-    f"short filter [weeks]: {FILT_SHORT_DAYS / 7:.1f}, "
-    f"long filter [weeks]: {FILT_LONG_DAYS / 7:.1f}"
+    f"date range [weeks]: {N_DAYS / 7:.1f}, "
+    f"short filter [weeks]: {FILT_SHORT_HOURS / 24 / 7:.1f}, "
+    f"long filter [weeks]: {FILT_LONG_HOURS / 24 / 7:.1f}"
 )
 fig.set_size_inches(20, 12)
 fig.set_facecolor("white")
@@ -218,9 +227,9 @@ xticks = (START_DATE, *filt_dates, END_DATE)
 xticklabels = tuple(doi_label(d) or d.isoformat() for d in xticks)
 xlim = [min(xticks) - timedelta(days=1), max(xticks) + timedelta(days=1)]
 
-# create a generator with all axis dependant data
+# create a generator with all axis dependant data, apart from review freq
 plot_data = zip(
-    axes,  # handle review frequency axis separately
+    axes,
     TIMELINE_KEYS,
     "Stars|Recommends|Outlook|CEO Opinion".split("|"),  # y labels
     ((1, 5), (0, 1), (-1, 1), (-1, 1)),  # y limits
@@ -280,8 +289,7 @@ axes[0].legend(loc=(0, 1.05))
 
 # plot review frequency
 count = Counter(raw["date"])
-n_days = (END_DATE - START_DATE).days + 1
-n_weeks = n_days // 7
+n_weeks = N_DAYS // 7
 n_4_weeks = n_weeks // 4
 
 freq_ax.hist(count, bins=n_4_weeks, label="per 4 weeks")
