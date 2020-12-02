@@ -83,13 +83,14 @@ raw = pd.read_excel(
     date_parser=datetime.fromisoformat
 )
 
-raw.sort_values("date", inplace=True)
-
-# ensure ordered in ascending date order
-assert all(a <= b for a, b in zip(raw["date"][:-1], raw["date"][1:]))
+# Excel file should be in descending date order
+assert all(a >= b for a, b in zip(raw["date"][:-1], raw["date"][1:]))
 
 # ensure all star ratings are present
 assert not any(raw["stars"].isna())
+
+# order dates in ascending order
+raw.sort_values("date", inplace=True)
 
 # %% remove out of range and nan data
 in_date_range = (START_DATE <= raw["date"]) & (raw["date"] <= END_DATE)
@@ -202,10 +203,10 @@ stars_ax, recommends_ax, outlook_ax, ceo_opinion_ax, freq_ax = axes
 fig.subplots_adjust(left=0.08, bottom=0.11, right=0.92, top=0.9, hspace=0)
 fig.suptitle(
     f"{README_TITLE} Timeline\n"
-    f"total reviews: {len(raw['date'])}, "
-    f"date range [days]: {(END_DATE - START_DATE).days}, "
+    f"total reviews: {len(clean['date'])}, "
+    f"date range [weeks]: {(END_DATE - START_DATE).days / 7:.1f}, "
     f"short filter [weeks]: {FILT_SHORT_DAYS / 7:.1f}, "
-    f"long filter [months]: {FILT_LONG_DAYS * 12 / 365:.1f}"
+    f"long filter [weeks]: {FILT_LONG_DAYS / 7:.1f}"
 )
 fig.set_size_inches(20, 12)
 fig.set_facecolor("white")
