@@ -105,8 +105,9 @@ clean["outlook"][missing & (clean["stars"] >= 4)] = 1
 clean["outlook"][missing & (clean["stars"] <= 2)] = -1
 
 # fill remaining nan values with assumptions
-for key in "recommends outlook ceo_opinion".split():
-    clean[key].fillna(value=0, inplace=True)
+clean["recommends"].fillna(value=0.5, inplace=True)
+clean["outlook"].fillna(value=0, inplace=True)
+clean["ceo_opinion"].fillna(value=0, inplace=True)
 
 # %% interpolate to regular timebase of 1 day
 
