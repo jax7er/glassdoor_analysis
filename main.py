@@ -107,7 +107,7 @@ ceo_3 = raw["ceo_opinion"][(start <= raw["date"]) & (raw["date"] < end)]
 
 # function for generating table in Markdown
 def make_table() -> str:
-    good, ok, bad = "+ ~ -".split()
+    good, ok, bad = "g o b".split()
 
     def make_row(bools: np.ndarray, label: str, positive = True) -> str:
         def frac_to_colour(frac: float) -> str:
@@ -136,11 +136,11 @@ def make_table() -> str:
         ])
 
     # Markdown reference links to 10x10 colour indicators
-    colour_defs = "\n".join([
-        f"[{good}]: https://via.placeholder.com/10/00ff00?text=+",
-        f"[{ok}]: https://via.placeholder.com/10/ffff00?text=+",
-        f"[{bad}]: https://via.placeholder.com/10/ff0000?text=+",
-    ])
+    colour_defs = (
+        f"[{good}]: https://via.placeholder.com/10/00ff00?text=+\n\n"
+        f"[{ok}]: https://via.placeholder.com/10/ffff00?text=+\n\n"
+        f"[{bad}]: https://via.placeholder.com/10/ff0000?text=+\n"
+    )
 
     # create table rows separated by line feeds
     return "\n".join([
