@@ -3,11 +3,8 @@
 ## 2016-06-23 to 2021-01-01
 
 [g]: https://via.placeholder.com/10/00ff00?text=+
-
 [o]: https://via.placeholder.com/10/ffff00?text=+
-
 [b]: https://via.placeholder.com/10/ff0000?text=+
-
 Statistic|N|Overall|Technical|Non-technical|Employed|Ex-employee
 -|-|-|-|-|-|-
 5 Stars|372|![][b] 13%|![][b] 11%|![][b] 16%|![][b] 14%|![][b] 12%

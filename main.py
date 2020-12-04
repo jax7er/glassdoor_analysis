@@ -110,7 +110,7 @@ def make_table() -> str:
     good, ok, bad = "g o b".split()
 
     def make_row(bools: np.ndarray, label: str, positive = True) -> str:
-        def frac_to_colour(frac: float) -> str:
+        def indicator(frac: float) -> str:
             if positive:
                 colour = good if frac >= 2/3 else ok if frac >= 1/3 else bad
             else:
@@ -132,19 +132,14 @@ def make_table() -> str:
         return "|".join([
             label,
             str(len(bools)),
-            *(f"{frac_to_colour(frac)} {100 * frac:.0f}%" for frac in fracs)
+            *(f"{indicator(frac)} {100 * frac:.0f}%" for frac in fracs)
         ])
 
-    # Markdown reference links to 10x10 colour indicators
-    colour_defs = (
-        f"[{good}]: https://via.placeholder.com/10/00ff00?text=+\n\n"
-        f"[{ok}]: https://via.placeholder.com/10/ffff00?text=+\n\n"
-        f"[{bad}]: https://via.placeholder.com/10/ff0000?text=+\n"
-    )
-
-    # create table rows separated by line feeds
+    # create 10x10 colour indicators and table rows separated by line feeds
     return "\n".join([
-        colour_defs,
+        f"[{good}]: https://via.placeholder.com/10/00ff00?text=+",
+        f"[{ok}]: https://via.placeholder.com/10/ffff00?text=+",
+        f"[{bad}]: https://via.placeholder.com/10/ff0000?text=+",
         "Statistic|N|Overall|Technical|Non-technical|Employed|Ex-employee",
         "-|-|-|-|-|-|-",
         make_row(raw["stars"] == 5, "5 Stars"),
@@ -160,10 +155,13 @@ def make_table() -> str:
 
 # create file and write report
 with open("README.md", "w") as readme_f:
-    readme_f.write(f"# {README_TITLE}\n\n")
-    readme_f.write(f"## {START_DATE:%Y-%m-%d} to {END_DATE:%Y-%m-%d}\n\n")
-    readme_f.write(make_table() + "\n\n")
-    readme_f.write(f"![Timeline]({PLOT_TIMELINE_NAME})\n\n")
+    def write_section(section: str):
+        readme_f.write(section + "\n\n")
+
+    write_section(f"# {README_TITLE}")
+    write_section(f"## {START_DATE:%Y-%m-%d} to {END_DATE:%Y-%m-%d}")
+    write_section(make_table())
+    write_section(f"![Timeline]({PLOT_TIMELINE_NAME})")
 
 # %% remove out of range and nan data
 in_date_range = (START_DATE <= raw["date"]) & (raw["date"] <= END_DATE)
