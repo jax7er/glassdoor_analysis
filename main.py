@@ -41,13 +41,13 @@ DOI_LABELS, DOI_DATES, DOI_COLOURS = zip(
 def doi_date(label: str) -> datetime:
     try:
         return DOI_DATES[DOI_LABELS.index(label)]
-    except IndexError:
+    except (ValueError, IndexError):
         return None
 
 def doi_label(date: datetime) -> str:
     try:
         return DOI_LABELS[DOI_DATES.index(date)]
-    except IndexError:
+    except (ValueError, IndexError):
         return None
 
 START_DATE = doi_date("Brexit vote")
@@ -94,15 +94,92 @@ assert not any(raw["stars"].isna())
 # order dates in ascending order
 raw.sort_values("date", inplace=True)
 
+# %% create markdown report
+
+# calculate some statistics on raw data
+start = doi_date("CEO 2")
+end = doi_date("CEO 3")
+ceo_2 = raw["ceo_opinion"][(start <= raw["date"]) & (raw["date"] < end)]
+
+start = doi_date("CEO 3")
+end = END_DATE
+ceo_3 = raw["ceo_opinion"][(start <= raw["date"]) & (raw["date"] < end)]
+
+# function for generating table in Markdown
+def make_table() -> str:
+    good, ok, bad = "+ ~ -".split()
+
+    def make_row(bools: np.ndarray, label: str, positive = True) -> str:
+        def frac_to_colour(frac: float) -> str:
+            if positive:
+                colour = good if frac >= 2/3 else ok if frac >= 1/3 else bad
+            else:
+                colour = bad if frac >= 2/3 else ok if frac >= 1/3 else good
+
+            # create Markdown image with link to colour indicator
+            return f"![][{colour}]"
+
+        # calculate all statistics for row
+        fracs = (
+            bools.mean(), 
+            bools.where(raw["technical"] == 1).mean(), 
+            bools.where(raw["technical"] == 0).mean(), 
+            bools.where(raw["employed"] == 1).mean(), 
+            bools.where(raw["employed"] == 0).mean(),
+        )
+
+        # create row data separated by pipes
+        return "|".join([
+            label,
+            str(len(bools)),
+            *(f"{frac_to_colour(frac)} {100 * frac:.0f}%" for frac in fracs)
+        ])
+
+    # Markdown reference links to 10x10 colour indicators
+    colour_defs = "\n".join([
+        f"[{good}]: https://via.placeholder.com/10/00ff00?text=+",
+        f"[{ok}]: https://via.placeholder.com/10/ffff00?text=+",
+        f"[{bad}]: https://via.placeholder.com/10/ff0000?text=+",
+    ])
+
+    # create table rows separated by line feeds
+    return "\n".join([
+        colour_defs,
+        "Statistic|N|Overall|Technical|Non-technical|Employed|Ex-employee",
+        "-|-|-|-|-|-|-",
+        make_row(raw["stars"] == 5, "5 Stars"),
+        make_row(raw["stars"] == 1, "1 Star", positive=False),
+        make_row(raw["recommends"], "Recommend"),
+        make_row(raw["outlook"] == 1, "Positive Outlook"),
+        make_row(raw["outlook"] == -1, "Negative Outlook", positive=False),
+        make_row(ceo_2 == 1, f"Approve CEO 2"),
+        make_row(ceo_2 == -1, f"Disapprove CEO 2", positive=False),
+        make_row(ceo_3 == 1, f"Approve CEO 3"),
+        make_row(ceo_3 == -1, f"Disapprove CEO 3", positive=False),
+    ])
+
+# create file and write report
+with open("README.md", "w") as readme_f:
+    readme_f.write(f"# {README_TITLE}\n\n")
+    readme_f.write(f"## {START_DATE:%Y-%m-%d} to {END_DATE:%Y-%m-%d}\n\n")
+    readme_f.write(make_table() + "\n\n")
+    readme_f.write(f"![Timeline]({PLOT_TIMELINE_NAME})\n\n")
+
 # %% remove out of range and nan data
 in_date_range = (START_DATE <= raw["date"]) & (raw["date"] <= END_DATE)
 clean_cols = ["date", *TIMELINE_KEYS]
+
 clean = raw[in_date_range][clean_cols]
 
 # separate duplicate dates by an hour (max 24 reviews per day)
-for d, g in clean[clean["date"].duplicated(keep=False)].groupby("date"):
-    clean["date"].loc[g.index] = pd.date_range(d, periods=len(g), freq="H")
+dup_date_data = clean[clean["date"].duplicated(keep=False)]
 
+for date, group in dup_date_data.groupby("date"):
+    hourly_range = pd.date_range(date, periods=len(group), freq="H")
+
+    clean["date"][group.index] = hourly_range
+
+# ensure all dates are unique
 assert not any(clean["date"].duplicated())
 
 # infer some nan values from the stars column
@@ -153,57 +230,6 @@ def filt_long(col: pd.Series) -> pd.Series:
 # apply filtering, set same interpolated date index as interp
 lp_short = interp.apply(filt_short).set_index(interp.index)
 lp_long = interp.apply(filt_long).set_index(interp.index)
-
-# %% create markdown report
-
-# calculate some statistics on raw data
-ceo_2_start = doi_date("CEO 2")
-ceo_2_end = doi_date("CEO 3")
-ceo_2_opinion = raw["ceo_opinion"].where(
-    (ceo_2_start < raw["date"]) & (raw["date"] <= ceo_2_end)
-)
-
-ceo_3_start = ceo_2_end
-ceo_3_end = END_DATE 
-ceo_3_opinion = raw["ceo_opinion"].where(
-    (ceo_3_start < raw["date"]) & (raw["date"] <= ceo_3_end)
-)
-
-# function for generating table in Markdown
-def make_table() -> str:
-    def make_row(bools: np.ndarray, label: str) -> str:
-        def perc(data: np.ndarray) -> str:
-            return f"{100 * data.mean():.0f}%"
-
-        return "|".join([
-            label,
-            perc(bools), 
-            perc(bools.where(raw["technical"] == 1)), 
-            perc(bools.where(raw["technical"] == 0)), 
-            perc(bools.where(raw["employed"] == 1)), 
-            perc(bools.where(raw["employed"] == 0)),
-        ])
-
-    return "\n".join([
-        "Statistic|Total|Technical|Non-technical|Employed|Ex-employee",
-        "-|-|-|-|-|-",
-        make_row(raw["stars"] == 5, "5 Stars"),
-        make_row(raw["stars"] == 1, "1 Star"),
-        make_row(raw["recommends"], "Recommend"),
-        make_row(raw["outlook"] == 1, "Positive Outlook"),
-        make_row(raw["outlook"] == -1, "Negative Outlook"),
-        make_row(ceo_2_opinion == 1, "Approve CEO 2"),
-        make_row(ceo_2_opinion == -1, "Disapprove CEO 2"),
-        make_row(ceo_3_opinion == 1, "Approve CEO 3"),
-        make_row(ceo_3_opinion == -1, "Disapprove CEO 3"),
-    ])
-
-# create file and write report
-with open("README.md", "w") as readme_f:
-    readme_f.write(f"# {README_TITLE}\n\n")
-    readme_f.write(f"## {START_DATE:%Y-%m-%d} to {END_DATE:%Y-%m-%d}\n\n")
-    readme_f.write(make_table() + "\n\n")
-    readme_f.write(f"![Timeline]({PLOT_TIMELINE_NAME})\n\n")
 
 # %% PLOT
 
