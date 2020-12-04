@@ -137,9 +137,9 @@ def make_table() -> str:
 
     # create 10x10 colour indicators and table rows separated by line feeds
     return "\n".join([
-        f"[{good}]: https://via.placeholder.com/10/00ff00?text=+",
-        f"[{ok}]: https://via.placeholder.com/10/ffff00?text=+",
-        f"[{bad}]: https://via.placeholder.com/10/ff0000?text=+",
+        f"[{good}]: https://via.placeholder.com/10/00ff00?text=+\n",
+        f"[{ok}]: https://via.placeholder.com/10/ffff00?text=+\n",
+        f"[{bad}]: https://via.placeholder.com/10/ff0000?text=+\n",
         "Statistic|N|Overall|Technical|Non-technical|Employed|Ex-employee",
         "-|-|-|-|-|-|-",
         make_row(raw["stars"] == 5, "5 Stars"),
