@@ -38,11 +38,13 @@ DOI_LABELS, DOI_DATES, DOI_COLOURS = zip(
     ("2021", datetime(2021, 1, 1), "black")
 )
 
+
 def doi_date(label: str) -> datetime:
     try:
         return DOI_DATES[DOI_LABELS.index(label)]
     except (ValueError, IndexError):
         return None
+
 
 def doi_label(date: datetime) -> str:
     try:
@@ -50,8 +52,9 @@ def doi_label(date: datetime) -> str:
     except (ValueError, IndexError):
         return None
 
-START_DATE = doi_date("Brexit vote")
-END_DATE = doi_date("2021")
+
+START_DATE = doi_date("CEO 2")
+END_DATE = datetime(2020, 12, 6)
 
 N_DAYS = (END_DATE - START_DATE).days + 1
 
@@ -62,8 +65,8 @@ PLOT_TIMELINE_NAME = "plot_timeline.png"
 # variables and order to plot in the timeline
 TIMELINE_KEYS = "stars recommends outlook ceo_opinion".split()
 
-FILT_SHORT_HOURS = 24 * 7 * 2  # 2 weeks
-FILT_LONG_HOURS = 24 * 365 / 4  # 3 months
+FILT_SHORT_HOURS = 24 * 365 / 52 * 2  # 2 weeks
+FILT_LONG_HOURS = 24 * 365 / 12 * 2  # 2 months
 FILT_ORDER = 2
 
 Y_SCALE = 0.8
@@ -94,64 +97,89 @@ assert not any(raw["stars"].isna())
 # order dates in ascending order
 raw.sort_values("date", inplace=True)
 
+# discard values outside date range of interest
+raw = raw[(START_DATE <= raw["date"]) & (raw["date"] <= END_DATE)]
+
 # %% create markdown report
 
 # calculate some statistics on raw data
-start = doi_date("CEO 2")
-end = doi_date("CEO 3")
-ceo_2 = raw["ceo_opinion"][(start <= raw["date"]) & (raw["date"] < end)]
+ceo_2 = (doi_date("CEO 2") <= raw["date"]) & (raw["date"] < doi_date("CEO 3"))
+ceo_3 = (doi_date("CEO 3") <= raw["date"])
 
-start = doi_date("CEO 3")
-end = END_DATE
-ceo_3 = raw["ceo_opinion"][(start <= raw["date"]) & (raw["date"] < end)]
+ceo_2_opinion = raw["ceo_opinion"][ceo_2]
+ceo_3_opinion = raw["ceo_opinion"][ceo_3]
+
+# calulate stat bool arrays, labels, and positivity
+stats = (
+    (raw["stars"] == 5, "5 Stars", True),
+    (raw["stars"] == 1, "1 Star", False),
+    (raw["recommends"], "Recommend", True),
+    (raw["outlook"] == 1, "Positive Outlook", True),
+    (raw["outlook"] == -1, "Negative Outlook", False),
+    (ceo_2_opinion == 1, "Approve CEO 2", True),
+    (ceo_2_opinion == -1, "Disapprove CEO 2", False),
+    (ceo_3_opinion == 1, "Approve CEO 3", True),
+    (ceo_3_opinion == -1, "Disapprove CEO 3", False),
+)
+
+# references for colour indicators
+good, ok, bad = "good ok bad".split()
+
+# nicely formatted dates for report
+start = format(START_DATE, "%Y-%m-%d")
+start += f" ({label})" if (label := doi_label(START_DATE)) else ""
+
+end = format(END_DATE, "%Y-%m-%d")
+end += f" ({label})" if (label := doi_label(END_DATE)) else ""
+
+
+def make_row(bools: np.ndarray, label: str, is_positive=True) -> str:
+    def indicator(frac: float) -> str:
+        if is_positive:
+            colour = good if frac >= 2 / 3 else ok if frac >= 1 / 3 else bad
+        else:
+            colour = bad if frac >= 2 / 3 else ok if frac >= 1 / 3 else good
+
+        # create Markdown image with link to colour indicator
+        return f"![{colour}]"
+
+    # calculate all statistics for row
+    fracs = (
+        bools.mean(), 
+        bools.where(raw["technical"] == 1).mean(), 
+        bools.where(raw["technical"] == 0).mean(), 
+        bools.where(raw["employed"] == 1).mean(), 
+        bools.where(raw["employed"] == 0).mean(),
+    )
+
+    # format results
+    results = (f"{indicator(frac)} {100 * frac:.0f}%" for frac in fracs)
+
+    # create row data separated by pipes
+    return "|".join([label, str(len(bools)), *results])
+
 
 # function for generating table in Markdown
 def make_table() -> str:
-    good, ok, bad = "g o b".split()
+    # create 10x10 colour indicators
+    indicator_refs = (
+        f"[{good}]: https://via.placeholder.com/10/0f0?text=+\n\n"
+        f"[{ok}]: https://via.placeholder.com/10/ff0?text=+\n\n"
+        f"[{bad}]: https://via.placeholder.com/10/f00?text=+\n"
+    )
 
-    def make_row(bools: np.ndarray, label: str, positive = True) -> str:
-        def indicator(frac: float) -> str:
-            if positive:
-                colour = good if frac >= 2/3 else ok if frac >= 1/3 else bad
-            else:
-                colour = bad if frac >= 2/3 else ok if frac >= 1/3 else good
+    # create table header
+    header = (
+        "Statistic|N|Overall|Technical|Non-technical|Employed|Ex-employee\n"
+        "-|-|-|-|-|-|-"
+    )
 
-            # create Markdown image with link to colour indicator
-            return f"![][{colour}]"
+    # create generator for all rows
+    rows = (make_row(bools, label, is_pos) for bools, label, is_pos in stats)
 
-        # calculate all statistics for row
-        fracs = (
-            bools.mean(), 
-            bools.where(raw["technical"] == 1).mean(), 
-            bools.where(raw["technical"] == 0).mean(), 
-            bools.where(raw["employed"] == 1).mean(), 
-            bools.where(raw["employed"] == 0).mean(),
-        )
+    # join everything with line feeds
+    return "\n".join([indicator_refs, header, *rows])
 
-        # create row data separated by pipes
-        return "|".join([
-            label,
-            str(len(bools)),
-            *(f"{indicator(frac)} {100 * frac:.0f}%" for frac in fracs)
-        ])
-
-    # create 10x10 colour indicators and table rows separated by line feeds
-    return "\n".join([
-        f"[{good}]: https://via.placeholder.com/10/00ff00?text=+\n",
-        f"[{ok}]: https://via.placeholder.com/10/ffff00?text=+\n",
-        f"[{bad}]: https://via.placeholder.com/10/ff0000?text=+\n",
-        "Statistic|N|Overall|Technical|Non-technical|Employed|Ex-employee",
-        "-|-|-|-|-|-|-",
-        make_row(raw["stars"] == 5, "5 Stars"),
-        make_row(raw["stars"] == 1, "1 Star", positive=False),
-        make_row(raw["recommends"], "Recommend"),
-        make_row(raw["outlook"] == 1, "Positive Outlook"),
-        make_row(raw["outlook"] == -1, "Negative Outlook", positive=False),
-        make_row(ceo_2 == 1, f"Approve CEO 2"),
-        make_row(ceo_2 == -1, f"Disapprove CEO 2", positive=False),
-        make_row(ceo_3 == 1, f"Approve CEO 3"),
-        make_row(ceo_3 == -1, f"Disapprove CEO 3", positive=False),
-    ])
 
 # create file and write report
 with open("README.md", "w") as readme_f:
@@ -159,7 +187,7 @@ with open("README.md", "w") as readme_f:
         readme_f.write(section + "\n\n")
 
     write_section(f"# {README_TITLE}")
-    write_section(f"## {START_DATE:%Y-%m-%d} to {END_DATE:%Y-%m-%d}")
+    write_section(f"## {start} to {end}")
     write_section(make_table())
     write_section(f"![Timeline]({PLOT_TIMELINE_NAME})")
 
@@ -198,19 +226,27 @@ clean["ceo_opinion"].fillna(value=0, inplace=True)
 # date indexes
 start = clean["date"].min()
 end = clean["date"].max()
+
 clean_date = pd.DatetimeIndex(clean["date"])
 interp_date = pd.date_range(start=start, end=end, freq="H")
 
 # calculate numerical index to interpolate on
-clean_delta_days = (clean_date - start).days
-interp_delta_days = (interp_date - start).days
+clean_delta_hours = (clean_date - start).total_seconds() / 3600
+interp_delta_hours = (interp_date - start).total_seconds() / 3600
+
 
 # function for performing interpolation
 def do_interp(col: pd.Series) -> pd.Series:    
-    return pd.Series(np.interp(interp_delta_days, clean_delta_days, col))
+    return pd.Series(np.interp(interp_delta_hours, clean_delta_hours, col))
+
 
 # remove date column, apply interpolation, set interpolated date index
-interp = clean.drop(columns="date").apply(do_interp).set_index(interp_date)
+interp = (
+    clean
+    .drop(columns="date")
+    .apply(do_interp)
+    .set_index(interp_date)
+)
 
 # %% low pass filter
 
@@ -218,12 +254,15 @@ interp = clean.drop(columns="date").apply(do_interp).set_index(interp_date)
 b_short, a_short = butter(FILT_ORDER, 1 / FILT_SHORT_HOURS)
 b_long, a_long = butter(FILT_ORDER, 1 / FILT_LONG_HOURS)
 
+
 # functions for performing filtering
 def filt_short(col: pd.Series) -> pd.Series:
     return pd.Series(filtfilt(b_short, a_short, col))
 
+
 def filt_long(col: pd.Series) -> pd.Series:
     return pd.Series(filtfilt(b_long, a_long, col))
+
 
 # apply filtering, set same interpolated date index as interp
 lp_short = interp.apply(filt_short).set_index(interp.index)
@@ -234,13 +273,14 @@ lp_long = interp.apply(filt_long).set_index(interp.index)
 # set up figure and axes
 fig, axes = plt.subplots(5, 1, sharex=True)
 stars_ax, recommends_ax, outlook_ax, ceo_opinion_ax, freq_ax = axes
+
 fig.subplots_adjust(left=0.08, bottom=0.11, right=0.92, top=0.9, hspace=0)
 fig.suptitle(
     f"{README_TITLE} Timeline\n"
     f"total reviews: {len(clean['date'])}, "
-    f"date range [weeks]: {N_DAYS / 7:.1f}, "
-    f"short filter [weeks]: {FILT_SHORT_HOURS / 24 / 7:.1f}, "
-    f"long filter [weeks]: {FILT_LONG_HOURS / 24 / 7:.1f}"
+    f"date range [years]: {N_DAYS / 365:.1f}, "
+    f"long filter [months]: {FILT_LONG_HOURS / 24 / 365 * 12:.1f}, "
+    f"short filter [weeks]: {FILT_SHORT_HOURS / 24 / 7:.1f}"
 )
 fig.set_size_inches(20, 12)
 fig.set_facecolor("white")
@@ -248,8 +288,8 @@ fig.set_facecolor("white")
 # use date of interest label else ISO date by default
 filt_dates = (d for d in DOI_DATES if START_DATE < d < END_DATE)
 xticks = (START_DATE, *filt_dates, END_DATE)
-xticklabels = tuple(doi_label(d) or d.isoformat() for d in xticks)
-xlim = [min(xticks) - timedelta(days=1), max(xticks) + timedelta(days=1)]
+xticklabels = tuple(doi_label(d) or format(d, "%Y-%m-%d") for d in xticks)
+xlim = [START_DATE - timedelta(days=1), END_DATE + timedelta(days=1)]
 
 # create a generator with all axis dependant data, apart from review freq
 plot_data = zip(
@@ -261,18 +301,22 @@ plot_data = zip(
         "1 2 3 4 5".split(),
         "No Yes".split(),
         "Negative Neutral Positive".split(),
-        "Disapproves Neutral Approves".split()
+        "Disapprove Neutral Approve".split()
     )
 )
 
 # loop to populate and style all data plots
 for ax, key, title, ylim, ylabels in plot_data:
     y_mid = np.mean(ylim)
-    raw_ = Y_SCALE * (raw[key] - y_mid) + y_mid
-    clean_ = Y_SCALE * (clean[key] - y_mid) + y_mid
-    lp_short_ = Y_SCALE * (lp_short[key] - y_mid) + y_mid
-    lp_long_ = Y_SCALE * (lp_long[key] - y_mid) + y_mid
-    yticks = Y_SCALE * (np.arange(ylim[0], ylim[1] + 1) - y_mid) + y_mid
+
+    def scale(data):
+        return Y_SCALE * (data - y_mid) + y_mid
+
+    raw_ = scale(raw[key])
+    lp_short_ = scale(lp_short[key])
+    lp_short_positive = np.where(lp_short_ > y_mid, lp_short_, np.nan)
+    lp_long_ = scale(lp_long[key])
+    yticks = scale(np.arange(ylim[0], ylim[1] + 1))
 
     # plot all series
     ax.scatter(  # raw employed
@@ -284,58 +328,72 @@ for ax, key, title, ylim, ylabels in plot_data:
         marker="x", linewidth=0.5, label="Ex-employee (raw)"
     )
     ax.plot(  # filtered data
-        interp.index, lp_long_, "grey",
-        interp.index, lp_short_, "red",
-        interp.index, np.where(lp_short_ > y_mid, lp_short_, np.nan), "green",
+        lp_long.index, lp_long_, "grey",
+        lp_short.index, lp_short_, "red",
+        lp_short.index, lp_short_positive, "green",
         linewidth=1
     )
-        
-    ax.set_xticks(xticks)
+    
+    # set axis properties
+    ax.set(
+        xticks=xticks,
+        xlim=xlim,
+    )
+    
+    # can't be set with ax.set()
     ax.set_xticklabels(xticklabels, rotation=90)
-    ax.set_xlim(xlim)
     ax.grid()
 
-    # add axis ticks and labels
-    ax2 = ax.twinx()
-    for a in (ax, ax2):
-        a.set_yticks(yticks)
-        a.set_yticklabels(ylabels)
-        a.set_ylabel(title)
-        a.set_frame_on(False)
-        a.set_ylim(ylim)
+    # create y axis on right hand side and add ticks and labels
+    plt.setp(
+        (ax, ax.twinx()),
+        yticks=yticks,
+        yticklabels=ylabels,
+        ylabel=title,
+        frame_on=False,
+        ylim=ylim,
+    )
     
     # add vertical lines at the dates of interest
-    for d, c in zip(DOI_DATES, DOI_COLOURS):
-        ax.vlines(d, *ylim, color=c, linewidth=0.5)
+    for date_, colour in zip(DOI_DATES, DOI_COLOURS):
+        if START_DATE <= date_ <= END_DATE:
+            ax.vlines(date_, *ylim, color=colour, linewidth=0.5)
 
 # add legend to first plot
 axes[0].legend(loc=(0, 1.05))
 
 # plot review frequency
 count = Counter(raw["date"])
+
 n_weeks = N_DAYS // 7
 n_4_weeks = n_weeks // 4
 
 freq_ax.hist(count, bins=n_4_weeks, label="per 4 weeks")
 freq_ax.hist(count, bins=n_weeks, label="per week")
 
+freq_ax.set(
+    xticks=xticks,
+    xlim=xlim,
+)
+
+freq_ax.set_xticklabels(xticklabels, rotation=90)
 freq_ax.grid()
 freq_ax.legend(loc="upper left")
-freq_ax.set_xticks(xticks)
-freq_ax.set_xticklabels(xticklabels, rotation=90)
-freq_ax.set_xlim(xlim)
 
 ymax = round(freq_ax.get_ylim()[1])
 ylim = [0, ymax]
 tick_step = ymax // 10  # 10 ticks no matter the range
-for ax in (freq_ax, freq_ax.twinx()):
-    ax.set_ylim(ylim)
-    ax.set_yticks(range(0, ymax, tick_step))
-    ax.set_frame_on(False)
-    ax.set_ylabel("Review Frequency")
+plt.setp(
+    (freq_ax, freq_ax.twinx()),
+    ylim=ylim,
+    yticks=range(0, ymax, tick_step),
+    frame_on=False,
+    ylabel="Review Frequency",
+)
 
-for d, c in zip(DOI_DATES, DOI_COLOURS):
-    freq_ax.vlines(d, *ylim, color=c, linewidth=0.5)
+for date_, colour in zip(DOI_DATES, DOI_COLOURS):
+    if START_DATE <= date_ <= END_DATE:
+        freq_ax.vlines(date_, *ylim, color=colour, linewidth=0.5)
 
 # save and show the figure
 fig.savefig(PLOT_TIMELINE_NAME)

@@ -1,24 +1,24 @@
 # Glassdoor Data (UK, Full Time)
 
-## 2016-06-23 to 2021-01-01
+## 2017-09-01 (CEO 2) to 2020-12-06
 
-[g]: https://via.placeholder.com/10/00ff00?text=+
+[good]: https://via.placeholder.com/10/0f0?text=+
 
-[o]: https://via.placeholder.com/10/ffff00?text=+
+[ok]: https://via.placeholder.com/10/ff0?text=+
 
-[b]: https://via.placeholder.com/10/ff0000?text=+
+[bad]: https://via.placeholder.com/10/f00?text=+
 
 Statistic|N|Overall|Technical|Non-technical|Employed|Ex-employee
 -|-|-|-|-|-|-
-5 Stars|372|![][b] 13%|![][b] 11%|![][b] 16%|![][b] 14%|![][b] 12%
-1 Star|372|![][g] 30%|![][g] 29%|![][g] 30%|![][g] 27%|![][o] 36%
-Recommend|372|![][o] 44%|![][o] 46%|![][o] 46%|![][o] 49%|![][b] 32%
-Positive Outlook|372|![][o] 35%|![][o] 37%|![][o] 34%|![][o] 39%|![][b] 27%
-Negative Outlook|372|![][g] 31%|![][g] 33%|![][g] 30%|![][g] 31%|![][g] 32%
-Approve CEO 2|148|![][b] 32%|![][b] 33%|![][b] 31%|![][o] 39%|![][b] 19%
-Disapprove CEO 2|148|![][g] 25%|![][g] 29%|![][g] 22%|![][g] 20%|![][o] 34%
-Approve CEO 3|126|![][b] 10%|![][b] 9%|![][b] 14%|![][b] 9%|![][b] 11%
-Disapprove CEO 3|126|![][o] 48%|![][o] 50%|![][o] 43%|![][o] 57%|![][g] 23%
+5 Stars|281|![bad] 12%|![bad] 11%|![bad] 12%|![bad] 12%|![bad] 13%
+1 Star|281|![ok] 35%|![good] 32%|![ok] 39%|![ok] 33%|![ok] 37%
+Recommend|281|![ok] 40%|![ok] 43%|![ok] 38%|![ok] 43%|![bad] 33%
+Positive Outlook|281|![bad] 29%|![bad] 30%|![bad] 27%|![bad] 32%|![bad] 22%
+Negative Outlook|281|![ok] 37%|![ok] 38%|![ok] 37%|![ok] 38%|![ok] 38%
+Approve CEO 2|148|![bad] 32%|![bad] 33%|![bad] 31%|![ok] 39%|![bad] 19%
+Disapprove CEO 2|148|![good] 25%|![good] 29%|![good] 22%|![good] 20%|![ok] 34%
+Approve CEO 3|133|![bad] 9%|![bad] 8%|![bad] 13%|![bad] 9%|![bad] 10%
+Disapprove CEO 3|133|![ok] 48%|![ok] 49%|![ok] 45%|![ok] 57%|![good] 28%
 
 ![Timeline](plot_timeline.png)
 
